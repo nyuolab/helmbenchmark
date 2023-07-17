@@ -1,5 +1,5 @@
 from datasets import load_dataset
-from sys import path
+import os.path as path
 import torch
 
 def load_test_dataset(prompting, d_name, tokenizer, dataset_path):
@@ -30,25 +30,25 @@ def load_test_dataset(prompting, d_name, tokenizer, dataset_path):
         test_dataset = torch.load(path.join(dataset_path, d_name + ".pt"))
     else:
         # preprocess the dataset
-        test_dataset = globals()["process" + dataset_name[d_name].replace("-", "_")](prompting, instruction, dataset)
+        test_dataset = globals()["process_" + dataset_name[d_name].split("/")[-1].replace("-", "_")](prompting, instruction, dataset)
         # save the preprocessed dataset
         torch.save(test_dataset, path.join(dataset_path, d_name + ".pt"))
     
     # tokenize the dataset
     def tokenize(examples):
         tokenized = tokenizer(examples["prompt"])
-        tokenized["label"] = examples["label"]
+        tokenized["truth"] = examples["label"]
         tokenized["prompt_length"] = examples["prompt_length"]
         return tokenized
     
-    if path.exists(path.join(dataset_path, d_name + "_" + tokenizer.name_or_path + ".pt")):
+    if path.exists(path.join(dataset_path, d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt")):
         # load the tokenized dataset
-        tokenized_test_dataset = torch.load(path.join(dataset_path, d_name + "_" + tokenizer.name_or_path + ".pt"))
+        tokenized_test_dataset = torch.load(path.join(dataset_path, d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt"))
     else:
         # preprocess the dataset
-        tokenized_test_dataset = test_dataset.map(tokenize, batched=True)
+        tokenized_test_dataset = test_dataset.map(tokenize, batched=True, remove_columns=test_dataset.column_names)
         # save the preprocessed dataset
-        torch.save(tokenized_test_dataset, path.join(dataset_path, d_name + "_" + tokenizer.name_or_path + ".pt"))
+        torch.save(tokenized_test_dataset, path.join(dataset_path, d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt"))
     
     return tokenized_test_dataset
 
@@ -83,7 +83,7 @@ def process_MedQA_USMLE_4_options(prompting, instruction, dataset):
         example["prompt_length"] = len(example["prompt"])
         return example
     
-    test_dataset = dataset["test"].map(prompt_label, remove_columns=dataset.column_names)
+    test_dataset = dataset["test"].map(prompt_label, remove_columns=dataset["test"].column_names)
 
     return test_dataset
 
@@ -123,7 +123,7 @@ def process_pubmed_qa(prompting, instruction, dataset):
         example["prompt_length"] = len(example["prompt"])
         return example
     
-    test_dataset = dataset["test"].map(prompt_label, remove_columns=dataset.column_names)
+    test_dataset = dataset["test"].map(prompt_label, remove_columns=dataset["test"].column_names)
 
     return test_dataset
 
@@ -161,7 +161,7 @@ def process_medmcqa(prompting, instruction, dataset):
         example["prompt_length"] = len(example["prompt"])
         return example
     
-    test_dataset = dataset["validation"].map(prompt_label, remove_columns=dataset.column_names)
+    test_dataset = dataset["validation"].map(prompt_label, remove_columns=dataset["validation"].column_names)
 
     return test_dataset
 

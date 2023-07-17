@@ -12,9 +12,11 @@ from transformers import (
     LlamaForCausalLM, 
     LlamaTokenizer,
     GPTNeoXForCausalLM,
-    Trainer,
-    TrainingArguments,
-    set_seed
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
+    set_seed,
+    DataCollatorForLanguageModeling,
+    GenerationConfig
 )
 
 
@@ -36,6 +38,7 @@ def main():
     # parse arguments
     args = parser.parse_args()
     prompt = args.prompt.split()
+    prompt = [int(i) for i in prompt]
     model_name = args.model_name.split()
     datasets = args.datasets.split()
 
@@ -62,6 +65,9 @@ def main():
         print(prompt_method + "-shot prompting:")
         print(df_dict[prompt_method])
 
+    # save the dictionary
+    torch.save(df_dict, "../reports/tables/results.pt")
+
 
 def eval(prompt_method, model_n, dataset):
 
@@ -79,16 +85,34 @@ def eval(prompt_method, model_n, dataset):
     # load dataset
     dataset_path = "../data/processed"
     test_dataset = load_test_dataset(prompt_method, dataset, tokenizer, dataset_path)
-    label = test_dataset["label"]
-    print("label shape: ", label.shape)
+    label = test_dataset["truth"]
+    print("label shape: ", len(label))
     prompt_length = test_dataset["prompt_length"]
 
     # set up trainer for evaluation only
-    trainer = Trainer(model=model)
+    gen_args = GenerationConfig(
+        max_new_tokens=5
+    )
 
+    args = Seq2SeqTrainingArguments(
+        output_dir="../models",
+        per_device_eval_batch_size=1,
+        eval_accumulation_steps=50,
+        predict_with_generate=True,
+        generation_config=gen_args
+    )
+    
+    trainer = Seq2SeqTrainer(model=model,
+                             args=args,
+                             data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, 
+                                                                           mlm=False)
+    )
+
+    # get predictions
     predictions = trainer.predict(test_dataset).predictions
-    print("prediction shape: ", predictions.shape)
-
+    predictions = predictions.tolist()
+    predictions =  [[elem for elem in row if elem != -100] for row in predictions]
+    
     # decode predictions
     decoded_predictions = tokenizer.batch_decode(predictions, skip_special_tokens=True, clean_up_tokenization_spaces=False)
     print("decoded prediction shape: ", len(decoded_predictions))
