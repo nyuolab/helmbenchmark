@@ -1,7 +1,7 @@
 benchmark
 ==============================
 
-Benchmark for NYUConsult
+Benchmark
 
 Project Organization
 ------------
