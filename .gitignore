@@ -91,3 +91,9 @@ target/
 
 # notebooks
 MedQA_test.ipynb
+
+# bash scripts
+*.sh
+
+# log
+log/

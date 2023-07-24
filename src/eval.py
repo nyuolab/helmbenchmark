@@ -62,7 +62,7 @@ def main():
 
     # print out the dataframe
     for prompt_method in prompt:
-        print(prompt_method + "-shot prompting:")
+        print(str(prompt_method) + "-shot prompting:")
         print(df_dict[prompt_method])
 
     # save the dictionary
@@ -81,6 +81,7 @@ def eval(prompt_method, model_n, dataset):
     elif model_n == "pythia":
         model = GPTNeoXForCausalLM.from_pretrained("EleutherAI/pythia-12b-deduped")
         tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-12b-deduped")
+        tokenizer.pad_token = tokenizer.eos_token
 
     # load dataset
     dataset_path = "../data/processed"
@@ -121,11 +122,27 @@ def eval(prompt_method, model_n, dataset):
     answer = []
     for i in range(len(decoded_predictions)):
         output = decoded_predictions[i][prompt_length[i]:]
+        
         # find the first alphabet
         for j in range(len(output)):
             if output[j].isalpha():
                 answer.append(output[j])
                 break
+        
+        # if there is no alphabet, then the answer is the output
+        if len(answer) != i + 1:
+            logger.info("No alphabet found in the output!")
+            logger.info("Output: " + output)
+            answer.append(output)
+    
+    # check the length of answer and label
+    if len(answer) != len(label):
+        print("answer length: ", len(answer))
+        print("label length: ", len(label))
+        print("prompt method: ", prompt_method)
+        print("model: ", model_n)
+        print("dataset: ", dataset)
+        raise Exception("Answer and label length do not match!")
     
     # calculate accuracy
     correct = 0

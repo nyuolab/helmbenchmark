@@ -1,6 +1,7 @@
 from datasets import load_dataset
 import os.path as path
 import torch
+import os
 
 def load_test_dataset(prompting, d_name, tokenizer, dataset_path):
 
@@ -25,14 +26,18 @@ def load_test_dataset(prompting, d_name, tokenizer, dataset_path):
         # the instruction
         instruction = ""
 
-    if path.exists(path.join(dataset_path, d_name + ".pt")):
+    if not path.exists(path.join(dataset_path, str(prompting))):
+        # create the directory
+        os.mkdir(path.join(dataset_path, str(prompting)))
+
+    if path.exists(path.join(dataset_path, str(prompting), d_name + ".pt")):
         # load the preprocessed dataset
-        test_dataset = torch.load(path.join(dataset_path, d_name + ".pt"))
+        test_dataset = torch.load(path.join(dataset_path, str(prompting), d_name + ".pt"))
     else:
         # preprocess the dataset
         test_dataset = globals()["process_" + dataset_name[d_name].split("/")[-1].replace("-", "_")](prompting, instruction, dataset)
         # save the preprocessed dataset
-        torch.save(test_dataset, path.join(dataset_path, d_name + ".pt"))
+        torch.save(test_dataset, path.join(dataset_path, str(prompting), d_name + ".pt"))
     
     # tokenize the dataset
     def tokenize(examples):
@@ -41,14 +46,14 @@ def load_test_dataset(prompting, d_name, tokenizer, dataset_path):
         tokenized["prompt_length"] = examples["prompt_length"]
         return tokenized
     
-    if path.exists(path.join(dataset_path, d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt")):
+    if path.exists(path.join(dataset_path, str(prompting), d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt")):
         # load the tokenized dataset
-        tokenized_test_dataset = torch.load(path.join(dataset_path, d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt"))
+        tokenized_test_dataset = torch.load(path.join(dataset_path, str(prompting), d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt"))
     else:
         # preprocess the dataset
         tokenized_test_dataset = test_dataset.map(tokenize, batched=True, remove_columns=test_dataset.column_names)
         # save the preprocessed dataset
-        torch.save(tokenized_test_dataset, path.join(dataset_path, d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt"))
+        torch.save(tokenized_test_dataset, path.join(dataset_path, str(prompting), d_name + "_" + tokenizer.name_or_path.replace('/', '_') + ".pt"))
     
     return tokenized_test_dataset
 
@@ -140,10 +145,10 @@ def process_medmcqa(prompting, instruction, dataset):
     for i in range(prompting):
         template = (template +
                     "Question: " + dataset["train"][i]["question"] + "\n" +
-                    "(A) " + dataset["train"][i]["options"]['opa'] + " " +
-                    "(B) " + dataset["train"][i]["options"]['opb'] + " " +
-                    "(C) " + dataset["train"][i]["options"]['opc'] + " " +
-                    "(D) " + dataset["train"][i]["options"]['opd'] + "\n" +
+                    "(A) " + dataset["train"][i]['opa'] + " " +
+                    "(B) " + dataset["train"][i]['opb'] + " " +
+                    "(C) " + dataset["train"][i]['opc'] + " " +
+                    "(D) " + dataset["train"][i]['opd'] + "\n" +
                     "Answer: (" + answer_list[dataset["train"][i]["cop"]] + ")\n\n")
         
     # function for converting the dataset into prompt-label format
@@ -151,10 +156,10 @@ def process_medmcqa(prompting, instruction, dataset):
         example["prompt"] = (
             template +
             "Question: " + example["question"] + "\n" +
-            "(A) " + example["options"]['opa'] + " " +
-            "(B) " + example["options"]['opb'] + " " +
-            "(C) " + example["options"]['opc'] + " " +
-            "(D) " + example["options"]['opd'] + "\n" +
+            "(A) " + example['opa'] + " " +
+            "(B) " + example['opb'] + " " +
+            "(C) " + example['opc'] + " " +
+            "(D) " + example['opd'] + "\n" +
             "Answer:"
         )
         example["label"] = answer_list[example["cop"]]
